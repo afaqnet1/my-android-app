@@ -17,26 +17,29 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Unzip Project Files
+    - name: Unzip and Locate Android Project
       run: |
-        # فك ضغط ملف الـ zip الذي قمت برفعه
-        unzip -q "*.zip" -d extracted_project
-        # نقل الملفات المفقودة للرئيسية إن لزم
-        shopt -s dotglob
-        mv extracted_project/*/* ./ || mv extracted_project/* ./ || true
+        echo "Listing all files:"
+        ls -la
+        unzip -q "*.zip" -d extracted_project || true
+        PROJECT_DIR=$(find . -name "gradlew" -exec dirname {} \; | head -n 1)
+        if [ -n "$PROJECT_DIR" ] && [ "$PROJECT_DIR" != "." ]; then
+          echo "Found project at: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+        fi
 
     - name: Grant execute permission for gradlew
       run: |
-        if [ -f "gradlew" ]; then
-          chmod +x gradlew
-        fi
+        find . -name "gradlew" -exec chmod +x {} \;
 
     - name: Build APK with Gradle
       run: |
-        if [ -f "gradlew" ]; then
-          ./gradlew assembleDebug
+        GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
+        if [ -n "$GRADLE_PATH" ]; then
+          $GRADLE_PATH assembleDebug
         else
-          echo "Gradle wrapper not found, looking for alternative build..."
+          echo "Error: gradlew not found!"
+          exit 1
         fi
 
     - name: Upload APK Artifact
@@ -44,6 +47,5 @@ jobs:
       with:
         name: app-debug
         path: |
-          app/build/outputs/apk/debug/*.apk
           **/build/outputs/apk/debug/*.apk
           
