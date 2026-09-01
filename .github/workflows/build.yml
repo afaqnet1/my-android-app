@@ -17,15 +17,25 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Unzip and Locate Android Project
+    - name: Unzip and Find Project Root
       run: |
-        echo "Listing all files:"
-        ls -la
-        unzip -q "*.zip" -d extracted_project || true
-        PROJECT_DIR=$(find . -name "gradlew" -exec dirname {} \; | head -n 1)
-        if [ -n "$PROJECT_DIR" ] && [ "$PROJECT_DIR" != "." ]; then
-          echo "Found project at: $PROJECT_DIR"
+        echo "Searching for zip files..."
+        for z in *.zip; do
+          if [ -f "$z" ]; then
+            echo "Unzipping $z..."
+            unzip -q "$z" -d extracted_src
+          fi
+        done
+        
+        # البحث عن مجلد يحتوي على gradlew بعد فك الضغط أو في المستودع نفسه
+        GRADLEW_FILE=$(find . -name "gradlew" | head -n 1)
+        if [ -n "$GRADLEW_FILE" ]; then
+          PROJECT_DIR=$(dirname "$GRADLEW_FILE")
+          echo "Found gradlew in: $PROJECT_DIR"
           cd "$PROJECT_DIR"
+        else
+          echo "Error: gradlew still not found after searching all extracted folders!"
+          exit 1
         fi
 
     - name: Grant execute permission for gradlew
@@ -34,13 +44,8 @@ jobs:
 
     - name: Build APK with Gradle
       run: |
-        GRADLE_PATH=$(find . -name "gradlew" | head -n 1)
-        if [ -n "$GRADLE_PATH" ]; then
-          $GRADLE_PATH assembleDebug
-        else
-          echo "Error: gradlew not found!"
-          exit 1
-        fi
+        GRADLEW_FILE=$(find . -name "gradlew" | head -n 1)
+        $GRADLEW_FILE assembleDebug
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
